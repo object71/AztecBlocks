@@ -10,7 +10,7 @@
 using namespace std::chrono;
 
 void update(milliseconds elapsedTime);
-void render();
+void render(milliseconds elapsedTime);
 void run();
 
 GameLoop* game;
@@ -29,7 +29,7 @@ int main(int argc, char* argv[]) {
 }
 
 static void run() {
-	window = new sf::RenderWindow(sf::VideoMode(640, 480), "Aztec Blocks", sf::Style::Titlebar | sf::Style::Close);
+	window = new sf::RenderWindow(sf::VideoMode(640, 480), "Jungle Blocks", sf::Style::Titlebar | sf::Style::Close);
 
 	board = new GameBoard(window, 5, 9);
 	game = new GameLoop(&update, &render);
@@ -48,8 +48,7 @@ static void update(milliseconds elapsedTime) {
 		sf::Event event;
 		while (window->pollEvent(event))
 		{
-			if (event.type == sf::Event::Closed ||
-				(event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::Escape)) {
+			if (event.type == sf::Event::Closed) {
 				game->setRunning(false);
 			}
 			else if (event.type == sf::Event::KeyReleased) {
@@ -60,10 +59,23 @@ static void update(milliseconds elapsedTime) {
 					board->move(Direction::Right);
 				}
 				else if (event.key.code == sf::Keyboard::Space) {
-					board->rotate();
+					if (board->state == State::GameOver) {
+						board->state = State::Restart;
+					}
+					else {
+						board->rotate();
+					}
 				}
 				else if (event.key.code == sf::Keyboard::Down) {
 					board->update(board->timestep);
+				}
+				else if (event.key.code == sf::Keyboard::Escape) {
+					if (board->state != State::Paused) {
+						board->state = State::Paused;
+					}
+					else {
+						board->state = State::BlockFalling;
+					}
 				}
 			}
 		}
@@ -72,8 +84,8 @@ static void update(milliseconds elapsedTime) {
 	board->update(elapsedTime);
 }
 
-static void render() {
+static void render(std::chrono::milliseconds elapsedTime) {
 	window->clear(sf::Color::Black);
-	board->render();
+	board->render(elapsedTime);
 	window->display();
 }

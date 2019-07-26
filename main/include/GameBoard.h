@@ -6,6 +6,9 @@ enum State {
 	None,
 	BlockFalling,
 	Resolution,
+	GameOver,
+	Restart,
+	Paused,
 };
 
 enum Direction {
@@ -16,15 +19,18 @@ enum Direction {
 struct Tile {
 	int value;
 	bool hasControl;
+	bool forDestruction;
 
 	Tile() {
 		value = 0;
 		hasControl = false;
+		forDestruction = false;
 	}
 
 	Tile(int value) {
 		this->value = value;
 		hasControl = false;
+		forDestruction = false;
 	}
 };
 
@@ -33,14 +39,16 @@ private:
 	sf::RenderWindow* window;
 	sf::Font gameFont;
 	sf::Texture blocksSpriteSheet;
+	sf::Texture backgroundImage;
+	sf::Sound completionSound;
 
 	std::chrono::milliseconds elapsedTimeForStep;
-	State state;
 
 	Tile* board;
 	int width;
 	int height;
 	int cellSize;
+	int score;
 
 	void spawnBlocksOnTop();
 	bool moveBlocks();
@@ -62,9 +70,10 @@ public:
 	~GameBoard();
 
 	std::chrono::milliseconds timestep;
+	State state;
 
 	void update(std::chrono::milliseconds elapsedTime);
-	void render();
+	void render(std::chrono::milliseconds elapsedTime);
 
 	void move(Direction direction);
 	void rotate();

@@ -9,7 +9,7 @@ if(WIN32)
 endif (WIN32)
 
 if(${CMAKE_BUILD_TYPE} MATCHES Debug)
-    add_compile_definitions(DEBUG=1)
+	add_compile_definitions(DEBUG=1)
 else()
 	add_compile_definitions(DEBUG=0)
 endif(${CMAKE_BUILD_TYPE} MATCHES Debug)

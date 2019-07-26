@@ -3,11 +3,12 @@
 #include <cmrc/cmrc.hpp>
 
 CMRC_DECLARE(main);
+int notThatValueByChance(int valueToAvoid);
 
 using namespace std::chrono;
 
-static std::default_random_engine rng;
-static std::uniform_int_distribution<int> range(1, 6);
+static std::random_device rng;
+static std::uniform_int_distribution<int> range(1, 9);
 
 static inline int position(int x, int y, int width) {
 	return y * width + x;
@@ -19,13 +20,22 @@ GameBoard::GameBoard(sf::RenderWindow* window, int boardWidth, int boardHeight) 
 	state = State::None;
 	width = boardWidth;
 	height = boardHeight;
-	timestep = milliseconds(500);
+	timestep = milliseconds(700);
 	cellSize = 48;
+	score = 0;
 
-	cmrc::file blocksSpritesheetFile = cmrc::main::get_filesystem().open("resources/dice_cubes_sd_bit.png");
+	sf::SoundBuffer* buffer = new sf::SoundBuffer();
+	cmrc::file completionSoundFile = cmrc::main::get_filesystem().open("resources/completionSound.wav");
+	buffer->loadFromMemory(completionSoundFile.begin(), completionSoundFile.size());
+	completionSound.setBuffer(*buffer);
+
+	cmrc::file backgroundImageFile = cmrc::main::get_filesystem().open("resources/background.png");
+	backgroundImage.loadFromMemory(backgroundImageFile.begin(), backgroundImageFile.size());
+
+	cmrc::file blocksSpritesheetFile = cmrc::main::get_filesystem().open("resources/textureStone.png");
 	blocksSpriteSheet.loadFromMemory(blocksSpritesheetFile.begin(), blocksSpritesheetFile.size());
 
-	cmrc::file mainFontFile = cmrc::main::get_filesystem().open("resources/UnicaOne-Regular.ttf");
+	cmrc::file mainFontFile = cmrc::main::get_filesystem().open("resources/Boxy-Bold.ttf");
 	gameFont.loadFromMemory(mainFontFile.begin(), mainFontFile.size());
 
 	board = new Tile[width * height];
@@ -33,6 +43,8 @@ GameBoard::GameBoard(sf::RenderWindow* window, int boardWidth, int boardHeight) 
 
 GameBoard::~GameBoard() {
 	this->window = nullptr;
+
+	delete completionSound.getBuffer();
 	delete[] this->board;
 }
 
@@ -47,7 +59,6 @@ void GameBoard::update(milliseconds elapsedTime) {
 		switch (state) {
 		case State::None:
 			spawnBlocksOnTop();
-			state = State::BlockFalling;
 			break;
 		case State::BlockFalling:
 			if (!moveBlocks()) {
@@ -59,8 +70,16 @@ void GameBoard::update(milliseconds elapsedTime) {
 				state = State::None;
 			}
 			else {
+				completionSound.play();
 				state = State::BlockFalling;
 			}
+			break;
+		case State::Restart:
+			score = 0;
+			board = new Tile[width * height];
+			state = State::None;
+			break;
+		case State::GameOver:
 			break;
 		}
 	}
@@ -69,14 +88,36 @@ void GameBoard::update(milliseconds elapsedTime) {
 
 void GameBoard::spawnBlocksOnTop() {
 	int position = this->width / 2;
+	if (this->board[position].value || this->board[position - 1].value) {
+		state = State::GameOver;
+	}
+	else {
+		int value1 = range(rng);
+		int value2 = notThatValueByChance(value1);
 
-	Tile tile1(range(rng));
-	Tile tile2(range(rng));
-	tile1.hasControl = true;
-	tile2.hasControl = true;
+		Tile tile1(value1);
+		Tile tile2(value2);
+		tile1.hasControl = true;
+		tile2.hasControl = true;
 
-	this->board[position] = tile1;
-	this->board[position - 1] = tile2;
+		this->board[position] = tile1;
+		this->board[position - 1] = tile2;
+
+		state = State::BlockFalling;
+	}
+}
+
+static int notThatValueByChance(int valueToAvoid) {
+	if (range(rng) == 7) {
+		return valueToAvoid;
+	}
+	else {
+		int value;
+		do {
+			value = range(rng);
+		} while (value == valueToAvoid);
+		return value;
+	}
 }
 
 bool GameBoard::resolveBlocks() {
@@ -96,34 +137,46 @@ bool GameBoard::propagateSetZeroValue(int x, int y) {
 	bool flag = false;
 
 	if (value) {
-		if (getValueAt(x + 1, y) == value) {
+		if (x < width - 1 && getValueAt(x + 1, y) == value) {
 			setValueAt(x, y, 0);
-			propagateSetZeroValue(x + 1, y);
-			setValueAt(x + 1, y, 0);
+			if (!propagateSetZeroValue(x + 1, y)) {
+				setValueAt(x + 1, y, 0);
+				score += value;
+			}
 			flag = true;
 		}
 
-		if (getValueAt(x - 1, y) == value) {
+		if (x > 0 && getValueAt(x - 1, y) == value) {
 			setValueAt(x, y, 0);
-			propagateSetZeroValue(x - 1, y);
-			setValueAt(x - 1, y, 0);
+			if (!propagateSetZeroValue(x - 1, y)) {
+				setValueAt(x - 1, y, 0);
+				score += value;
+			}
 			flag = true;
 		}
 
-		if (getValueAt(x, y + 1) == value) {
+		if (y < height - 1 && getValueAt(x, y + 1) == value) {
 			setValueAt(x, y, 0);
-			propagateSetZeroValue(x, y + 1);
-			setValueAt(x, y + 1, 0);
+			if (!propagateSetZeroValue(x, y + 1)) {
+				setValueAt(x, y + 1, 0);
+				score += value;
+			}
 			flag = true;
 		}
 
-		if (getValueAt(x, y - 1) == value) {
+		if (y > 0 && getValueAt(x, y - 1) == value) {
 			setValueAt(x, y, 0);
-			propagateSetZeroValue(x, y - 1);
-			setValueAt(x, y - 1, 0);
+			if (!propagateSetZeroValue(x, y - 1)) {
+				setValueAt(x, y - 1, 0);
+				score += value;
+			}
 			flag = true;
 		}
 
+	}
+
+	if (flag) {
+		score += value;
 	}
 
 	return flag;
@@ -134,6 +187,9 @@ int GameBoard::getValueAt(int x, int y) {
 }
 
 void GameBoard::setValueAt(int x, int y, int value) {
+	if (!value) {
+		this->board[position(x, y, width)].forDestruction = true;
+	}
 	this->board[position(x, y, width)].value = value;
 }
 
@@ -228,26 +284,26 @@ void GameBoard::rotate() {
 
 			if (getHasControlAt(x, y)) {
 
-				if (x > 0 && getHasControlAt(x - 1, y)) {
+				if (x < width - 1 && getHasControlAt(x + 1, y)) {
 					if (!getValueAt(x, y + 1)) {
 						swapBlocks(x, y, x, y + 1);
-						swapBlocks(x - 1, y, x, y);
+						swapBlocks(x + 1, y, x, y);
 						rotated = true;
 					}
 					else if (!getValueAt(x, y - 1)) {
 						swapBlocks(x, y, x, y - 1);
-						swapBlocks(x - 1, y, x, y);
+						swapBlocks(x + 1, y, x, y);
 						rotated = true;
 					}
 				}
 				else if (getHasControlAt(x, y - 1)) {
-					if (x > 0 && !getValueAt(x - 1, y)) {
-						swapBlocks(x, y, x - 1, y);
+					if (x < width - 1 && !getValueAt(x + 1, y)) {
+						swapBlocks(x, y, x + 1, y);
 						swapBlocks(x, y - 1, x, y);
 						rotated = true;
 					}
-					else if (x < width - 1 && !getValueAt(x + 1, y)) {
-						swapBlocks(x, y, x + 1, y);
+					else if (x > 0 && !getValueAt(x - 1, y)) {
+						swapBlocks(x, y, x - 1, y);
 						swapBlocks(x, y - 1, x, y);
 						rotated = true;
 					}
@@ -258,31 +314,92 @@ void GameBoard::rotate() {
 	}
 }
 
+void GameBoard::render(milliseconds elapsedTime) {
+	sf::RectangleShape background(sf::Vector2f(window->getSize()));
+	background.setTexture(&backgroundImage);
+	window->draw(background);
 
-void GameBoard::render() {
+	int boardPixelWidth = cellSize * width;
+	int boardPixelHeight = cellSize * height;
 
+	int paddingLeft = (window->getSize().x - boardPixelWidth) / 2;
 	for (int x = 0; x < width; x++) {
 		for (int y = 0; y < height; y++) {
-			int value = getValueAt(x, y);
+			Tile tile = getTileAt(x, y);
+			int value = tile.value;
 
-			sf::RectangleShape shape(sf::Vector2f(cellSize, cellSize));
-			shape.setTexture(&blocksSpriteSheet);
-			shape.setTextureRect(sf::IntRect((value - 1) * 32, 0, 32, 32));
-
-			shape.setOutlineThickness(1);
+			sf::RectangleShape tileRectangle(sf::Vector2f(cellSize, cellSize));
+			tileRectangle.setPosition(sf::Vector2f((x * cellSize) + paddingLeft, (y * cellSize) + 5));
+			tileRectangle.setOutlineThickness(1);
 
 			if (value) {
-				shape.setFillColor(sf::Color::White);
-				shape.setOutlineColor(sf::Color::Black);
+				sf::Text textValue;
+				textValue.setFont(gameFont);
+				textValue.setFillColor(sf::Color(255, 255, 255, 215));
+				textValue.setString(std::to_string(value));
+
+				textValue.setPosition(tileRectangle.getPosition().x + 10, tileRectangle.getPosition().y + 5);
+
+				tileRectangle.setTexture(&blocksSpriteSheet);
+				tileRectangle.setTextureRect(sf::IntRect(0, 0, 256, 256));
+				tileRectangle.setOutlineColor(sf::Color::Black);
+
+
+				window->draw(tileRectangle);
+				window->draw(textValue);
 			}
 			else {
-				shape.setFillColor(sf::Color::Black);
-				shape.setOutlineColor(sf::Color::White);
+				tileRectangle.setFillColor(sf::Color(20, 20, 20, 100));
+				tileRectangle.setOutlineColor(sf::Color::White);
+
+				window->draw(tileRectangle);
 			}
-
-			shape.setPosition(sf::Vector2f(x * cellSize, y * cellSize));
-
-			window->draw(shape);
 		}
 	}
+
+	sf::Text scoreText;
+	scoreText.setFont(gameFont);
+	scoreText.setFillColor(sf::Color::White);
+	scoreText.setString(std::to_string(score));
+	scoreText.setCharacterSize(24);
+	window->draw(scoreText);
+
+	if (state == State::GameOver) {
+		sf::RectangleShape overlay(sf::Vector2f(window->getSize()));
+		overlay.setFillColor(sf::Color(0, 0, 0, 200));
+		window->draw(overlay);
+
+		sf::Text gameOverText;
+		gameOverText.setFont(gameFont);
+		gameOverText.setFillColor(sf::Color::White);
+		gameOverText.setString("Game Over");
+		gameOverText.setCharacterSize(48);
+		gameOverText.setPosition((boardPixelWidth / 2), (boardPixelHeight / 2) - gameOverText.getCharacterSize());
+
+		sf::Text restartText;
+		restartText.setFont(gameFont);
+		restartText.setFillColor(sf::Color::White);
+		restartText.setString("press space to restart");
+		restartText.setCharacterSize(24);
+		restartText.setPosition((boardPixelWidth / 2), (boardPixelHeight / 2) + 6);
+
+		window->draw(gameOverText);
+		window->draw(restartText);
+	}
+
+	if (state == State::Paused) {
+		sf::RectangleShape overlay(sf::Vector2f(window->getSize()));
+		overlay.setFillColor(sf::Color(0, 0, 0, 200));
+		window->draw(overlay);
+
+		sf::Text pausedText;
+		pausedText.setFont(gameFont);
+		pausedText.setFillColor(sf::Color::White);
+		pausedText.setString("Paused");
+		pausedText.setCharacterSize(48);
+		pausedText.setPosition((boardPixelWidth / 2), (boardPixelHeight / 2) - pausedText.getCharacterSize());
+
+		window->draw(pausedText);
+	}
+
 }

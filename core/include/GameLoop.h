@@ -8,7 +8,7 @@
 class GameLoop {
 private:
 	void (*update)(std::chrono::milliseconds);
-	void (*render)();
+	void (*render)(std::chrono::milliseconds);
 	bool running;
 	std::chrono::milliseconds msPerUpdate;
 	int targetFPS;
@@ -16,7 +16,7 @@ private:
 	void init();
 public:
 	GameLoop();
-	GameLoop(void(*update)(std::chrono::milliseconds), void(*render)());
+	GameLoop(void(*update)(std::chrono::milliseconds), void(*render)(std::chrono::milliseconds));
 	~GameLoop();
 
 	bool getRunning();

@@ -9,7 +9,7 @@ static milliseconds getCurrentTime() {
 
 void GameLoop::init() {
 	running = false;
-	msPerUpdate = milliseconds(100);
+	msPerUpdate = milliseconds(10);
 	targetFPS = 60;
 	update = nullptr;
 	render = nullptr;
@@ -19,7 +19,7 @@ GameLoop::GameLoop() {
 	init();
 }
 
-GameLoop::GameLoop(void(*update)(milliseconds), void(*render)()) {
+GameLoop::GameLoop(void(*update)(milliseconds), void(*render)(milliseconds)) {
 	init();
 	this->update = update;
 	this->render = render;
@@ -46,9 +46,7 @@ void GameLoop::runGameLoop() {
 			lag -= msPerUpdate;
 		}
 
-		this->render();
-
-		std::this_thread::sleep_for(std::chrono::milliseconds(1000 / targetFPS));
+		this->render(elapsed);
 	}
 }
 
