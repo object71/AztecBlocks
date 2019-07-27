@@ -59,7 +59,7 @@ static void update(milliseconds elapsedTime) {
 					board->move(Direction::Right);
 				}
 				else if (event.key.code == sf::Keyboard::Space) {
-					if (board->state == State::GameOver) {
+					if (board->state == State::GameOver || board->state == Initial) {
 						board->state = State::Restart;
 					}
 					else {
@@ -68,6 +68,9 @@ static void update(milliseconds elapsedTime) {
 				}
 				else if (event.key.code == sf::Keyboard::Down) {
 					board->update(board->timestep);
+				}
+				else if (event.key.code == sf::Keyboard::M) {
+					board->setMute(board->getMute() ? false : true);
 				}
 				else if (event.key.code == sf::Keyboard::Escape) {
 					if (board->state != State::Paused) {

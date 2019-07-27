@@ -1,4 +1,4 @@
-#include "GameBoard.h"
+﻿#include "GameBoard.h"
 #include <random>
 #include <cmrc/cmrc.hpp>
 
@@ -17,17 +17,26 @@ static inline int position(int x, int y, int width) {
 GameBoard::GameBoard(sf::RenderWindow* window, int boardWidth, int boardHeight) {
 	this->window = window;
 	elapsedTimeForStep = milliseconds(0);
-	state = State::None;
+	state = State::Initial;
 	width = boardWidth;
 	height = boardHeight;
 	timestep = milliseconds(700);
 	cellSize = 48;
 	score = 0;
+	mute = false;
 
 	sf::SoundBuffer* buffer = new sf::SoundBuffer();
 	cmrc::file completionSoundFile = cmrc::main::get_filesystem().open("resources/completionSound.wav");
 	buffer->loadFromMemory(completionSoundFile.begin(), completionSoundFile.size());
 	completionSound.setBuffer(*buffer);
+
+	sf::SoundBuffer* musicBuffer = new sf::SoundBuffer();
+	cmrc::file gameMusicFile = cmrc::main::get_filesystem().open("resources/gameMusic.ogg");
+	musicBuffer->loadFromMemory(gameMusicFile.begin(), gameMusicFile.size());
+	gameMusic.setBuffer(*musicBuffer);
+	gameMusic.setLoop(true);
+	gameMusic.setVolume(25);
+	gameMusic.play();
 
 	cmrc::file backgroundImageFile = cmrc::main::get_filesystem().open("resources/background.png");
 	backgroundImage.loadFromMemory(backgroundImageFile.begin(), backgroundImageFile.size());
@@ -45,6 +54,7 @@ GameBoard::~GameBoard() {
 	this->window = nullptr;
 
 	delete completionSound.getBuffer();
+	delete gameMusic.getBuffer();
 	delete[] this->board;
 }
 
@@ -53,7 +63,6 @@ void GameBoard::update(milliseconds elapsedTime) {
 	elapsedTimeForStep += elapsedTime;
 
 	if (elapsedTimeForStep >= timestep) {
-		std::cout << elapsedTimeForStep.count() << std::endl;
 		elapsedTimeForStep = milliseconds(0);
 
 		switch (state) {
@@ -70,7 +79,9 @@ void GameBoard::update(milliseconds elapsedTime) {
 				state = State::None;
 			}
 			else {
-				completionSound.play();
+				if (!mute) {
+					completionSound.play();
+				}
 				state = State::BlockFalling;
 			}
 			break;
@@ -80,6 +91,8 @@ void GameBoard::update(milliseconds elapsedTime) {
 			state = State::None;
 			break;
 		case State::GameOver:
+		case State::Initial:
+		case State::Paused:
 			break;
 		}
 	}
@@ -315,7 +328,8 @@ void GameBoard::rotate() {
 }
 
 void GameBoard::render(milliseconds elapsedTime) {
-	sf::RectangleShape background(sf::Vector2f(window->getSize()));
+	sf::Vector2u windowSize = window->getSize();
+	sf::RectangleShape background = sf::RectangleShape(sf::Vector2f(windowSize));
 	background.setTexture(&backgroundImage);
 	window->draw(background);
 
@@ -333,12 +347,10 @@ void GameBoard::render(milliseconds elapsedTime) {
 			tileRectangle.setOutlineThickness(1);
 
 			if (value) {
-				sf::Text textValue;
-				textValue.setFont(gameFont);
-				textValue.setFillColor(sf::Color(255, 255, 255, 215));
-				textValue.setString(std::to_string(value));
-
-				textValue.setPosition(tileRectangle.getPosition().x + 10, tileRectangle.getPosition().y + 5);
+				sf::Text textValue = generateTextWithGameFont(std::to_string(value), 
+					tileRectangle.getPosition().x + 10, 
+					tileRectangle.getPosition().y + 5, 
+					sf::Color(255, 255, 255, 215));
 
 				tileRectangle.setTexture(&blocksSpriteSheet);
 				tileRectangle.setTextureRect(sf::IntRect(0, 0, 256, 256));
@@ -369,19 +381,11 @@ void GameBoard::render(milliseconds elapsedTime) {
 		overlay.setFillColor(sf::Color(0, 0, 0, 200));
 		window->draw(overlay);
 
-		sf::Text gameOverText;
-		gameOverText.setFont(gameFont);
-		gameOverText.setFillColor(sf::Color::White);
-		gameOverText.setString("Game Over");
-		gameOverText.setCharacterSize(48);
-		gameOverText.setPosition((boardPixelWidth / 2), (boardPixelHeight / 2) - gameOverText.getCharacterSize());
+		sf::Text gameOverText = generateTextWithGameFont("Game Over", 0, 0, sf::Color::White, 48);
+		gameOverText.setPosition((windowSize.x / 2) - (gameOverText.getGlobalBounds().width / 2), (windowSize.y / 2) - gameOverText.getCharacterSize());
 
-		sf::Text restartText;
-		restartText.setFont(gameFont);
-		restartText.setFillColor(sf::Color::White);
-		restartText.setString("press space to restart");
-		restartText.setCharacterSize(24);
-		restartText.setPosition((boardPixelWidth / 2), (boardPixelHeight / 2) + 6);
+		sf::Text restartText = generateTextWithGameFont("Press SPACE to restart", 0, 0, sf::Color::White, 24);
+		restartText.setPosition((windowSize.x / 2) - (restartText.getGlobalBounds().width / 2), (windowSize.y / 2) + 6);
 
 		window->draw(gameOverText);
 		window->draw(restartText);
@@ -392,14 +396,45 @@ void GameBoard::render(milliseconds elapsedTime) {
 		overlay.setFillColor(sf::Color(0, 0, 0, 200));
 		window->draw(overlay);
 
-		sf::Text pausedText;
-		pausedText.setFont(gameFont);
-		pausedText.setFillColor(sf::Color::White);
-		pausedText.setString("Paused");
-		pausedText.setCharacterSize(48);
-		pausedText.setPosition((boardPixelWidth / 2), (boardPixelHeight / 2) - pausedText.getCharacterSize());
-
+		sf::Text pausedText = generateTextWithGameFont("Paused", 0, 0, sf::Color::White, 48);
+		pausedText.setPosition((windowSize.x / 2) - (pausedText.getGlobalBounds().width / 2), (windowSize.y / 2) - pausedText.getCharacterSize());
 		window->draw(pausedText);
 	}
 
+	if (state == State::Initial) {
+		sf::RectangleShape overlay(sf::Vector2f(window->getSize()));
+		overlay.setFillColor(sf::Color(0, 0, 0, 200));
+		window->draw(overlay);
+
+		sf::Text pausedText = generateTextWithGameFont("LEFT/RIGHT to move the falling block\nSPACE to rotate\nDOWN to speed up\nESC for pause\nM for mute", 0, 0, sf::Color::White, 24);
+		pausedText.setPosition((windowSize.x / 2) - (pausedText.getGlobalBounds().width / 2), (windowSize.y / 2) - (pausedText.getGlobalBounds().height / 2));
+		pausedText.setLineSpacing(1.5);
+		window->draw(pausedText);
+	}
+}
+
+sf::Text GameBoard::generateTextWithGameFont(std::string text, int x, int y, sf::Color color, int characterSize) {
+	sf::Text textElement;
+	textElement.setFont(gameFont);
+	textElement.setFillColor(color);
+	textElement.setString(text);
+	textElement.setCharacterSize(characterSize);
+	textElement.setPosition(x, y);
+
+	return textElement;
+}
+
+bool GameBoard::getMute() {
+	return mute;
+}
+
+void GameBoard::setMute(bool value) {
+	if (value) {
+		gameMusic.pause();
+	}
+	else {
+		gameMusic.play();
+	}
+
+	mute = value;
 }

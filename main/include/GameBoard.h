@@ -9,6 +9,7 @@ enum State {
 	GameOver,
 	Restart,
 	Paused,
+	Initial,
 };
 
 enum Direction {
@@ -41,6 +42,7 @@ private:
 	sf::Texture blocksSpriteSheet;
 	sf::Texture backgroundImage;
 	sf::Sound completionSound;
+	sf::Sound gameMusic;
 
 	std::chrono::milliseconds elapsedTimeForStep;
 
@@ -49,6 +51,7 @@ private:
 	int height;
 	int cellSize;
 	int score;
+	bool mute;
 
 	void spawnBlocksOnTop();
 	bool moveBlocks();
@@ -61,7 +64,7 @@ private:
 	void setHasControlAt(int x, int y, bool value);
 	Tile getTileAt(int x, int y);
 	void setTileAt(int x, int y, Tile tile);
-
+	sf::Text generateTextWithGameFont(std::string text, int x = 0, int y = 0, sf::Color color = sf::Color::White, int characterSize = 30);
 	void swapBlocks(int x1, int y1, int x2, int y2);
 	void setNoControl();
 
@@ -71,6 +74,9 @@ public:
 
 	std::chrono::milliseconds timestep;
 	State state;
+
+	bool getMute();
+	void setMute(bool value);
 
 	void update(std::chrono::milliseconds elapsedTime);
 	void render(std::chrono::milliseconds elapsedTime);

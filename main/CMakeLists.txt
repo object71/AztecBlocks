@@ -16,6 +16,7 @@ cmrc_add_resource_library(rs-main
 	resources/Boxy-Bold.ttf
 	resources/background.png
 	resources/completionSound.wav
+	resources/gameMusic.ogg
 	)
 
 add_executable(main ${SOURCES} ${HEADERS})
