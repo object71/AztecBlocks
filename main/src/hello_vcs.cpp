@@ -3,9 +3,6 @@
 #include <thread>
 #include "GameLoop.h"
 #include "GameBoard.h"
-#if WINDOWS && !DEBUG
-#include <windows.h>
-#endif
 
 using namespace std::chrono;
 
@@ -18,9 +15,6 @@ GameBoard* board;
 sf::RenderWindow* window;
 
 int main(int argc, char* argv[]) {
-#if WINDOWS && !DEBUG
-	ShowWindow(GetConsoleWindow(), SW_HIDE);
-#endif
 
 	std::thread gameLoop(&run);
 	gameLoop.join();

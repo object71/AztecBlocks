@@ -19,7 +19,12 @@ cmrc_add_resource_library(rs-main
 	resources/gameMusic.ogg
 	)
 
-add_executable(main ${SOURCES} ${HEADERS})
+if(WIN32)
+	add_executable(main WIN32 ${SOURCES} ${HEADERS})
+else()
+	add_executable(main ${SOURCES} ${HEADERS})
+endif (WIN32)
+
 set_target_properties(main PROPERTIES 
 	PUBLIC_HEADER ${HEADERS}
 	)
