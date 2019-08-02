@@ -18,7 +18,7 @@ GameBoard::GameBoard(sf::RenderWindow& t_window, const int& boardWidth, const in
 	: m_window(t_window)
 {
 	elapsedTimeForStep = milliseconds(0);
-	state = State::Initial;
+	state = BoardState::Initial;
 	width = boardWidth;
 	height = boardHeight;
 	timestep = milliseconds(700);
@@ -26,15 +26,15 @@ GameBoard::GameBoard(sf::RenderWindow& t_window, const int& boardWidth, const in
 	score = 0;
 	mute = false;
 
-	sf::SoundBuffer buffer;
+	sf::SoundBuffer* buffer = new sf::SoundBuffer();
 	cmrc::file completionSoundFile = cmrc::main::get_filesystem().open("resources/completionSound.wav");
-	buffer.loadFromMemory(completionSoundFile.begin(), completionSoundFile.size());
-	completionSound.setBuffer(buffer);
+	buffer->loadFromMemory(completionSoundFile.begin(), completionSoundFile.size());
+	completionSound.setBuffer(*buffer);
 
-	sf::SoundBuffer musicBuffer;
+	sf::SoundBuffer* musicBuffer = new sf::SoundBuffer();
 	cmrc::file gameMusicFile = cmrc::main::get_filesystem().open("resources/gameMusic.ogg");
-	musicBuffer.loadFromMemory(gameMusicFile.begin(), gameMusicFile.size());
-	gameMusic.setBuffer(musicBuffer);
+	musicBuffer->loadFromMemory(gameMusicFile.begin(), gameMusicFile.size());
+	gameMusic.setBuffer(*musicBuffer);
 	gameMusic.setLoop(true);
 	gameMusic.setVolume(25);
 	gameMusic.play();
@@ -52,44 +52,89 @@ GameBoard::GameBoard(sf::RenderWindow& t_window, const int& boardWidth, const in
 }
 
 GameBoard::~GameBoard() {
+	delete this->gameMusic.getBuffer();
+	delete this->completionSound.getBuffer();
 	delete[] this->board;
 }
 
 
 void GameBoard::update(milliseconds elapsedTime) {
+	if (m_window.isOpen()) {
+		sf::Event event;
+		while (m_window.pollEvent(event))
+		{
+			if (event.type == sf::Event::Closed) {
+				// TODO: Find how to close properly
+				//setRunning(false);
+			}
+			else if (event.type == sf::Event::KeyPressed) {
+				if (event.key.code == sf::Keyboard::Down) {
+					update(timestep);
+				}
+			}
+			else if (event.type == sf::Event::KeyReleased) {
+				if (event.key.code == sf::Keyboard::Left) {
+					move(Direction::Left);
+				}
+				else if (event.key.code == sf::Keyboard::Right) {
+					move(Direction::Right);
+				}
+				else if (event.key.code == sf::Keyboard::Space) {
+					if (state == BoardState::GameOver || state == Initial) {
+						state = BoardState::Restart;
+					}
+					else {
+						rotate();
+					}
+				}
+				else if (event.key.code == sf::Keyboard::M) {
+					setMute(getMute() ? false : true);
+				}
+				else if (event.key.code == sf::Keyboard::Escape) {
+					if (state != BoardState::Paused) {
+						state = BoardState::Paused;
+					}
+					else {
+						state = BoardState::BlockFalling;
+					}
+				}
+			}
+		}
+	}
+
 	elapsedTimeForStep += elapsedTime;
 
 	if (elapsedTimeForStep >= timestep) {
 		elapsedTimeForStep = milliseconds(0);
 
 		switch (state) {
-		case State::None:
+		case BoardState::None:
 			spawnBlocksOnTop();
 			break;
-		case State::BlockFalling:
+		case BoardState::BlockFalling:
 			if (!moveBlocks()) {
-				state = State::Resolution;
+				state = BoardState::Resolution;
 			}
 			break;
-		case State::Resolution:
+		case BoardState::Resolution:
 			if (!resolveBlocks()) {
-				state = State::None;
+				state = BoardState::None;
 			}
 			else {
 				if (!mute) {
 					completionSound.play();
 				}
-				state = State::BlockFalling;
+				state = BoardState::BlockFalling;
 			}
 			break;
-		case State::Restart:
+		case BoardState::Restart:
 			score = 0;
 			board = new Tile[width * height];
-			state = State::None;
+			state = BoardState::None;
 			break;
-		case State::GameOver:
-		case State::Initial:
-		case State::Paused:
+		case BoardState::GameOver:
+		case BoardState::Initial:
+		case BoardState::Paused:
 			break;
 		}
 	}
@@ -99,7 +144,7 @@ void GameBoard::update(milliseconds elapsedTime) {
 void GameBoard::spawnBlocksOnTop() {
 	int position = this->width / 2;
 	if (this->board[position].value || this->board[position - 1].value) {
-		state = State::GameOver;
+		state = BoardState::GameOver;
 	}
 	else {
 		int value1 = range(rng);
@@ -113,7 +158,7 @@ void GameBoard::spawnBlocksOnTop() {
 		this->board[position] = tile1;
 		this->board[position - 1] = tile2;
 
-		state = State::BlockFalling;
+		state = BoardState::BlockFalling;
 	}
 }
 
@@ -373,7 +418,7 @@ void GameBoard::draw(milliseconds elapsedTime) {
 	scoreText.setCharacterSize(24);
 	m_window.draw(scoreText);
 
-	if (state == State::GameOver) {
+	if (state == BoardState::GameOver) {
 		sf::RectangleShape overlay(sf::Vector2f(m_window.getSize()));
 		overlay.setFillColor(sf::Color(0, 0, 0, 200));
 		m_window.draw(overlay);
@@ -388,7 +433,7 @@ void GameBoard::draw(milliseconds elapsedTime) {
 		m_window.draw(restartText);
 	}
 
-	if (state == State::Paused) {
+	if (state == BoardState::Paused) {
 		sf::RectangleShape overlay(sf::Vector2f(m_window.getSize()));
 		overlay.setFillColor(sf::Color(0, 0, 0, 200));
 		m_window.draw(overlay);
@@ -398,7 +443,7 @@ void GameBoard::draw(milliseconds elapsedTime) {
 		m_window.draw(pausedText);
 	}
 
-	if (state == State::Initial) {
+	if (state == BoardState::Initial) {
 		sf::RectangleShape overlay(sf::Vector2f(m_window.getSize()));
 		overlay.setFillColor(sf::Color(0, 0, 0, 200));
 		m_window.draw(overlay);

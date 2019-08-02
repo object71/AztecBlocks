@@ -7,39 +7,9 @@
 #include <SFML/Graphics.hpp>
 #include <SFML/Audio.hpp>
 #include "Interfaces.h"
-
-enum State {
-	None,
-	BlockFalling,
-	Resolution,
-	GameOver,
-	Restart,
-	Paused,
-	Initial,
-};
-
-enum Direction {
-	Left,
-	Right,
-};
-
-struct Tile {
-	int value;
-	bool hasControl;
-	bool forDestruction;
-
-	Tile() {
-		value = 0;
-		hasControl = false;
-		forDestruction = false;
-	}
-
-	Tile(int value) {
-		this->value = value;
-		hasControl = false;
-		forDestruction = false;
-	}
-};
+#include "Tile.h"
+#include "Direction.h"
+#include "BoardState.h"
 
 class GameBoard: public IFullComponent {
 private:
@@ -79,7 +49,7 @@ public:
 	~GameBoard();
 
 	std::chrono::milliseconds timestep;
-	State state;
+	BoardState state;
 
 	bool getMute();
 	void setMute(bool value);

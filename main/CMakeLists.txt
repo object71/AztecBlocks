@@ -3,11 +3,15 @@ project(Main)
 set(SOURCES 
 	src/Game.cpp
 	src/GameBoard.cpp
+	src/Program.cpp
 	)
 
 set(HEADERS 
 	include/GameBoard.h
 	include/Game.h
+	include/Tile.h
+	include/Direction.h
+	include/BoardState.h
 	)
 
 cmrc_add_resource_library(rs-main
