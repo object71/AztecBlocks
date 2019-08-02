@@ -1,6 +1,12 @@
 #pragma once
 
-#include "Common.h"
+#include <chrono>
+#include <memory>
+#include <SFML/Main.hpp>
+#include <SFML/Window.hpp>
+#include <SFML/Graphics.hpp>
+#include <SFML/Audio.hpp>
+#include "Interfaces.h"
 
 enum State {
 	None,
@@ -35,9 +41,9 @@ struct Tile {
 	}
 };
 
-class GameBoard {
+class GameBoard: public IFullComponent {
 private:
-	sf::RenderWindow* window;
+	sf::RenderWindow& m_window;
 	sf::Font gameFont;
 	sf::Texture blocksSpriteSheet;
 	sf::Texture backgroundImage;
@@ -69,7 +75,7 @@ private:
 	void setNoControl();
 
 public:
-	GameBoard(sf::RenderWindow* window, int boardWidth, int boardHeight);
+	GameBoard(sf::RenderWindow& t_window, const int& boardWidth, const int& boardHeight);
 	~GameBoard();
 
 	std::chrono::milliseconds timestep;
@@ -78,8 +84,8 @@ public:
 	bool getMute();
 	void setMute(bool value);
 
-	void update(std::chrono::milliseconds elapsedTime);
-	void render(std::chrono::milliseconds elapsedTime);
+	virtual void update(std::chrono::milliseconds elapsedTime) override;
+	virtual void draw(std::chrono::milliseconds elapsedTime) override;
 
 	void move(Direction direction);
 	void rotate();

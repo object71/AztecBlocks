@@ -1,26 +1,23 @@
 #pragma once
 
 #include <chrono>
-#include <string>
-#include <vector>
-#include <SFML/Graphics.hpp>
+#include <memory>
+#include "Interfaces.h"
 
 class GameLoop {
 private:
-	void (*update)(std::chrono::milliseconds);
-	void (*render)(std::chrono::milliseconds);
-	bool running;
-	std::chrono::milliseconds msPerUpdate;
-	int targetFPS;
-
-	void init();
+	bool m_running;
+	std::chrono::milliseconds m_step;
+	IFullComponent& m_mainComponent;
 public:
-	GameLoop();
-	GameLoop(void(*update)(std::chrono::milliseconds), void(*render)(std::chrono::milliseconds));
+	GameLoop(IFullComponent& component);
 	~GameLoop();
 
 	bool getRunning();
-	void setRunning(bool value);
+	void setRunning(const bool& value);
 
-	void runGameLoop();
+	std::chrono::milliseconds getStep();
+	void setStep(const std::chrono::milliseconds& value);
+
+	void run();
 };

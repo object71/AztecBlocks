@@ -14,8 +14,9 @@ static inline int position(int x, int y, int width) {
 	return y * width + x;
 }
 
-GameBoard::GameBoard(sf::RenderWindow* window, int boardWidth, int boardHeight) {
-	this->window = window;
+GameBoard::GameBoard(sf::RenderWindow& t_window, const int& boardWidth, const int& boardHeight)
+	: m_window(t_window)
+{
 	elapsedTimeForStep = milliseconds(0);
 	state = State::Initial;
 	width = boardWidth;
@@ -25,15 +26,15 @@ GameBoard::GameBoard(sf::RenderWindow* window, int boardWidth, int boardHeight) 
 	score = 0;
 	mute = false;
 
-	sf::SoundBuffer* buffer = new sf::SoundBuffer();
+	sf::SoundBuffer buffer;
 	cmrc::file completionSoundFile = cmrc::main::get_filesystem().open("resources/completionSound.wav");
-	buffer->loadFromMemory(completionSoundFile.begin(), completionSoundFile.size());
-	completionSound.setBuffer(*buffer);
+	buffer.loadFromMemory(completionSoundFile.begin(), completionSoundFile.size());
+	completionSound.setBuffer(buffer);
 
-	sf::SoundBuffer* musicBuffer = new sf::SoundBuffer();
+	sf::SoundBuffer musicBuffer;
 	cmrc::file gameMusicFile = cmrc::main::get_filesystem().open("resources/gameMusic.ogg");
-	musicBuffer->loadFromMemory(gameMusicFile.begin(), gameMusicFile.size());
-	gameMusic.setBuffer(*musicBuffer);
+	musicBuffer.loadFromMemory(gameMusicFile.begin(), gameMusicFile.size());
+	gameMusic.setBuffer(musicBuffer);
 	gameMusic.setLoop(true);
 	gameMusic.setVolume(25);
 	gameMusic.play();
@@ -51,10 +52,6 @@ GameBoard::GameBoard(sf::RenderWindow* window, int boardWidth, int boardHeight) 
 }
 
 GameBoard::~GameBoard() {
-	this->window = nullptr;
-
-	delete completionSound.getBuffer();
-	delete gameMusic.getBuffer();
 	delete[] this->board;
 }
 
@@ -327,16 +324,16 @@ void GameBoard::rotate() {
 	}
 }
 
-void GameBoard::render(milliseconds elapsedTime) {
-	sf::Vector2u windowSize = window->getSize();
+void GameBoard::draw(milliseconds elapsedTime) {
+	sf::Vector2u windowSize = m_window.getSize();
 	sf::RectangleShape background = sf::RectangleShape(sf::Vector2f(windowSize));
 	background.setTexture(&backgroundImage);
-	window->draw(background);
+	m_window.draw(background);
 
 	int boardPixelWidth = cellSize * width;
 	int boardPixelHeight = cellSize * height;
 
-	int paddingLeft = (window->getSize().x - boardPixelWidth) / 2;
+	int paddingLeft = (m_window.getSize().x - boardPixelWidth) / 2;
 	for (int x = 0; x < width; x++) {
 		for (int y = 0; y < height; y++) {
 			Tile tile = getTileAt(x, y);
@@ -357,14 +354,14 @@ void GameBoard::render(milliseconds elapsedTime) {
 				tileRectangle.setOutlineColor(sf::Color::Black);
 
 
-				window->draw(tileRectangle);
-				window->draw(textValue);
+				m_window.draw(tileRectangle);
+				m_window.draw(textValue);
 			}
 			else {
 				tileRectangle.setFillColor(sf::Color(20, 20, 20, 100));
 				tileRectangle.setOutlineColor(sf::Color::White);
 
-				window->draw(tileRectangle);
+				m_window.draw(tileRectangle);
 			}
 		}
 	}
@@ -374,12 +371,12 @@ void GameBoard::render(milliseconds elapsedTime) {
 	scoreText.setFillColor(sf::Color::White);
 	scoreText.setString(std::to_string(score));
 	scoreText.setCharacterSize(24);
-	window->draw(scoreText);
+	m_window.draw(scoreText);
 
 	if (state == State::GameOver) {
-		sf::RectangleShape overlay(sf::Vector2f(window->getSize()));
+		sf::RectangleShape overlay(sf::Vector2f(m_window.getSize()));
 		overlay.setFillColor(sf::Color(0, 0, 0, 200));
-		window->draw(overlay);
+		m_window.draw(overlay);
 
 		sf::Text gameOverText = generateTextWithGameFont("Game Over", 0, 0, sf::Color::White, 48);
 		gameOverText.setPosition((windowSize.x / 2) - (gameOverText.getGlobalBounds().width / 2), (windowSize.y / 2) - gameOverText.getCharacterSize());
@@ -387,29 +384,29 @@ void GameBoard::render(milliseconds elapsedTime) {
 		sf::Text restartText = generateTextWithGameFont("Press SPACE to restart", 0, 0, sf::Color::White, 24);
 		restartText.setPosition((windowSize.x / 2) - (restartText.getGlobalBounds().width / 2), (windowSize.y / 2) + 6);
 
-		window->draw(gameOverText);
-		window->draw(restartText);
+		m_window.draw(gameOverText);
+		m_window.draw(restartText);
 	}
 
 	if (state == State::Paused) {
-		sf::RectangleShape overlay(sf::Vector2f(window->getSize()));
+		sf::RectangleShape overlay(sf::Vector2f(m_window.getSize()));
 		overlay.setFillColor(sf::Color(0, 0, 0, 200));
-		window->draw(overlay);
+		m_window.draw(overlay);
 
 		sf::Text pausedText = generateTextWithGameFont("Paused", 0, 0, sf::Color::White, 48);
 		pausedText.setPosition((windowSize.x / 2) - (pausedText.getGlobalBounds().width / 2), (windowSize.y / 2) - pausedText.getCharacterSize());
-		window->draw(pausedText);
+		m_window.draw(pausedText);
 	}
 
 	if (state == State::Initial) {
-		sf::RectangleShape overlay(sf::Vector2f(window->getSize()));
+		sf::RectangleShape overlay(sf::Vector2f(m_window.getSize()));
 		overlay.setFillColor(sf::Color(0, 0, 0, 200));
-		window->draw(overlay);
+		m_window.draw(overlay);
 
 		sf::Text pausedText = generateTextWithGameFont("LEFT/RIGHT to move the falling block\nSPACE to rotate\nDOWN to speed up\nESC for pause\nM for mute", 0, 0, sf::Color::White, 24);
 		pausedText.setPosition((windowSize.x / 2) - (pausedText.getGlobalBounds().width / 2), (windowSize.y / 2) - (pausedText.getGlobalBounds().height / 2));
 		pausedText.setLineSpacing(1.5);
-		window->draw(pausedText);
+		m_window.draw(pausedText);
 	}
 }
 

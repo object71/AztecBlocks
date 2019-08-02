@@ -1,5 +1,8 @@
 #include "GameLoop.h"
 #include <thread>
+#include <SFML/Graphics.hpp>
+#include <string>
+#include <vector>
 
 using namespace std::chrono;
 
@@ -7,48 +10,42 @@ static milliseconds getCurrentTime() {
 	return duration_cast<milliseconds>(system_clock::now().time_since_epoch());
 }
 
-void GameLoop::init() {
-	running = false;
-	msPerUpdate = milliseconds(10);
-	targetFPS = 60;
-	update = nullptr;
-	render = nullptr;
-}
-
-GameLoop::GameLoop() {
-	init();
-}
-
-GameLoop::GameLoop(void(*update)(milliseconds), void(*render)(milliseconds)) {
-	init();
-	this->update = update;
-	this->render = render;
+GameLoop::GameLoop(IFullComponent& component):
+	m_mainComponent(component)
+{
+	m_running = false;
+	m_step = std::chrono::milliseconds(10);
 }
 
 GameLoop::~GameLoop() {
 }
 
-void GameLoop::runGameLoop() {
-	running = true;
+void GameLoop::run() {
+	m_running = true;
 
 	milliseconds previous = getCurrentTime();
 	milliseconds lag(0);
-	while (running)
+	while (m_running)
 	{
 		milliseconds current = getCurrentTime();
 		milliseconds elapsed = current - previous;
 		previous = current;
 		lag += elapsed;
 
-		while (lag >= msPerUpdate)
+		while (lag >= m_step)
 		{
-			this->update(msPerUpdate);
-			lag -= msPerUpdate;
+			m_mainComponent.update(m_step);
+			lag -= m_step;
 		}
 
-		this->render(elapsed);
+		m_mainComponent.draw(elapsed);
 	}
 }
 
-bool GameLoop::getRunning() { return running; }
-void GameLoop::setRunning(bool value) { running = value; }
+bool GameLoop::getRunning() { return m_running; }
+
+void GameLoop::setRunning(const bool& value) { m_running = value; }
+
+std::chrono::milliseconds GameLoop::getStep() { return m_step; }
+
+void GameLoop::setStep(const std::chrono::milliseconds& value) { m_step = value; }
